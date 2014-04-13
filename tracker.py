@@ -1,6 +1,7 @@
 import bencode
 import hashlib
 import requests
+from peers import Peer
 
 class Tracker(object):
 
@@ -43,7 +44,7 @@ class Tracker(object):
                 ip_addr.append(str(ord(peer_str[i])))
             ip_addr = '.'.join(ip_addr)
             port_no = 256*ord(peer_str[4])+ord(peer_str[5])
-            peers.append({'ip':ip_addr, 'port':port_no})
+            peers.append(Peer(ip_addr,port_no))
         return peers
 
 

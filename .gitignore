@@ -1,7 +1,5 @@
 *.py[cod]
 
-*.torrent
-
 # C extensions
 *.so
 

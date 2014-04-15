@@ -22,6 +22,10 @@ class Peer(object):
         self.port = port
         self.torrent = torrent
         self.bitfield = BitArray(int=0, length=len(self.torrent.pieces))
+        self.am_choking = True
+        self.am_interested = False
+        self.peer_choking = True
+        self.peer_interested = False
 
 
     def run(self):
@@ -43,23 +47,24 @@ class Peer(object):
         pass
 
     def handle_choke_msg(self, payload):
-        pass
+        self.peer_choking = True
 
 
     def handle_unchoke_msg(self, payload):
-        pass
+        self.peer_choking = False
 
 
     def handle_interested_msg(self, payload):
-        pass
+        self.peer_interested = True
 
 
     def handle_not_interested_msg(self, payload):
-        pass
+        self.peer_interested = False
 
 
     def handle_have_msg(self, payload):
-        pass
+        index = bytes_to_number(payload)
+        self.bitfield[index] = True
 
 
     def handle_bitfield_msg(self, payload):

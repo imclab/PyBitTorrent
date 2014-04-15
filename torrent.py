@@ -13,7 +13,7 @@ class Torrent(object):
         self.torrent = bencode.bdecode(open(torrentFileName,'rb').read())
 
         self.parse_pieces()
-        
+
         encoded_info = bencode.bencode(self.torrent['info'])
         self.info_hash =  hashlib.sha1(encoded_info).digest()
 
@@ -59,6 +59,7 @@ class Torrent(object):
             self.pieces.append(Piece(i, min(piece_length, length_left),piece_hashes[0:20]))
             piece_hashes = piece_hashes[20:]
             length_left -= piece_length
+        self.bitfield = BitArray(int=0, length=len(self.torrent.pieces))
         print 'parsed %i pieces' % len(self.pieces)
 
 

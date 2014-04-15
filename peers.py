@@ -64,6 +64,7 @@ class Peer(object):
 
     def handle_bitfield_msg(self, payload):
         self.bitfield = BitArray(bytes=payload, length=len(self.torrent.pieces))
+        self.bitfield_updated()
 
     def handle_request_msg(self, payload):
         pass
@@ -78,6 +79,18 @@ class Peer(object):
 
     def handle_port_msg(self, payload):
         pass
+
+    def bitfield_updated(self):
+        if (not self.am_interested):
+             # if there is a piece that they have and we don't, send an interested message
+            for i in range(0, len(self.bitfield)):
+                if (self.bitfield[i] and not self.torrent.bitfield[i]):
+                    self.send_interested();
+                    return
+
+    def send_interested(self):
+        self.am_interested = True
+        self.socket.send('\x00\x00\x00\x01\x02')
 
     def connect(self):
         print self.ip

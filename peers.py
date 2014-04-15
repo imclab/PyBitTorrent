@@ -1,5 +1,6 @@
 import socket
 import struct
+from bitstring import BitArray
 
 def bytes_to_number(bytestring):  
     '''bytestring assumed to be 4 bytes long and represents 1 number'''
@@ -15,11 +16,11 @@ def bytes_to_number(bytestring):
 
 class Peer(object):
 
-    def __init__(self, ip, port, info_hash, peer_id):
+    def __init__(self, ip, port, torrent):
         self.ip = ip
         self.port = port
-        self.info_hash = info_hash
-        self.peer_id = peer_id
+        self.torrent = torrent
+        self.bitfield = BitArray(int=0, length=len(self.torrent.pieces))
 
 
     def run(self):
@@ -37,11 +38,25 @@ class Peer(object):
             if (length > 0):
                 msg_id = msg[4]
             else: 
-                msg_id = 0
+                msg_id = -1
+            payload = msg[5:]
             print 'msg_id %s' % msg_id
             print msg_id
+            handlers = {
+                5:self.handle_bitfield_msg
+                }
+            try:
+                handlers[msg_id](payload)
+            except KeyError:
+                print 'no handler for msg id %i' % msg_id
         except socket.error as err:
             print err
+
+    def handle_bitfield_msg(self, payload):
+        self.bitfield = BitArray(bytes=msg, length=len(self.torrent.pieces))
+        for i in range(0, len(self.bitfield)):
+            if not self.bitfield[i]:
+                print "don't have piece %i" % i
 
 
     def connect(self):
@@ -64,7 +79,7 @@ class Peer(object):
         pstr = 'BitTorrent protocol'
         reserved = '\x00\x00\x00\x00\x00\x00\x00\x00'
        
-        handshake = pstrlen+pstr+reserved+self.info_hash+self.peer_id
+        handshake = pstrlen+pstr+reserved+self.torrent.info_hash+self.torrent.PEER_ID
 
         return handshake
 

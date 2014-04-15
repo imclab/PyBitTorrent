@@ -2,11 +2,11 @@
 
 import sys
 
-from tracker import Tracker
+from torrent import Torrent
 
 def main():
     torrentFile = sys.argv[1]
-    tracker = Tracker(torrentFile)
+    tracker = Torrent(torrentFile)
 
     
     

@@ -2,27 +2,28 @@ import bencode
 import hashlib
 import requests
 from peers import Peer
+from pieces import Piece
 
-class Tracker(object):
+class Torrent(object):
 
     PEER_ID = '-BJ1000-012345678901'
     PORT_NO = 6881
 
     def __init__(self, torrentFileName):
         self.torrent = bencode.bdecode(open(torrentFileName,'rb').read())
-        print "self.torrent"
-        print self.torrent
+
+        self.parse_pieces()
+        
+        encoded_info = bencode.bencode(self.torrent['info'])
+        self.info_hash =  hashlib.sha1(encoded_info).digest()
 
         self.get_peer_list()
 
-
-    def get_info_hash(self):
-        encoded_info = bencode.bencode(self.torrent['info'])
-        return hashlib.sha1(encoded_info).digest()
+        self.connect_to_peers()
 
     def get_peer_list(self):
         params = {
-            'info_hash':self.get_info_hash(),
+            'info_hash':self.info_hash,
             'peer_id':self.PEER_ID,
             'left':self.torrent['info']['piece length'],
             'port':self.PORT_NO,
@@ -33,8 +34,7 @@ class Tracker(object):
         tracker_response = requests.get(self.torrent['announce'], params=params)
         self.tracker = bencode.bdecode(tracker_response.content)
         self.peers = self.parse_peers(self.tracker['peers'])
-        for peer in self.peers:
-            peer.run()
+        print "found %i peers" % len(self.peers)
 
     def parse_peers(self, list):
         peers = []
@@ -46,11 +46,25 @@ class Tracker(object):
                 ip_addr.append(str(ord(peer_str[i])))
             ip_addr = '.'.join(ip_addr)
             port_no = 256*ord(peer_str[4])+ord(peer_str[5])
-            peers.append(Peer(ip_addr,port_no, self.get_info_hash(), self.PEER_ID))
+            peers.append(Peer(ip_addr,port_no,self))
         return peers
 
+    def parse_pieces(self):
+        self.pieces = []
+        piece_length = self.torrent['info']['piece length']
+        length_left = self.torrent['info']['length']
+        piece_hashes = self.torrent['info']['pieces']
+        i = 0
+        while length_left > 0:
+            self.pieces.append(Piece(i, min(piece_length, length_left),piece_hashes[0:20]))
+            piece_hashes = piece_hashes[20:]
+            length_left -= piece_length
+        print 'parsed %i pieces' % len(self.pieces)
 
 
+    def connect_to_peers(self):
+        for peer in self.peers:
+            peer.run()
 
 
 

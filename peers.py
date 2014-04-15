@@ -65,6 +65,7 @@ class Peer(object):
     def handle_have_msg(self, payload):
         index = bytes_to_number(payload)
         self.bitfield[index] = True
+        self.bitfield_updated()
 
 
     def handle_bitfield_msg(self, payload):
@@ -94,6 +95,7 @@ class Peer(object):
                     return
 
     def send_interested(self):
+        print 'sending interested'
         self.am_interested = True
         self.socket.send('\x00\x00\x00\x01\x02')
 
@@ -128,16 +130,18 @@ class PeerReceiveThread(Thread):
         self.peer = peer
 
     def run(self):
+        self.peer.socket.settimeout(120)
         while True:
             msg = self.peer.socket.recv(100000)
             msg = bytearray(msg)
             length = bytes_to_number(msg[0:4])
-            print 'length %s' % length
             if (length > 0):
                 msg_id = msg[4]
             else: 
                 msg_id = -1
+                continue
             payload = msg[5:]
+            print 'length %s' % length
             print 'msg_id %s' % msg_id
             print msg_id
             handlers = {

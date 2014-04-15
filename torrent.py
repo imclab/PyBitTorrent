@@ -3,6 +3,7 @@ import hashlib
 import requests
 from peers import Peer
 from pieces import Piece
+from bitstring import BitArray
 
 class Torrent(object):
 
@@ -10,11 +11,11 @@ class Torrent(object):
     PORT_NO = 6881
 
     def __init__(self, torrentFileName):
-        self.torrent = bencode.bdecode(open(torrentFileName,'rb').read())
+        self.torrent_file = bencode.bdecode(open(torrentFileName,'rb').read())
 
         self.parse_pieces()
 
-        encoded_info = bencode.bencode(self.torrent['info'])
+        encoded_info = bencode.bencode(self.torrent_file['info'])
         self.info_hash =  hashlib.sha1(encoded_info).digest()
 
         self.get_peer_list()
@@ -25,13 +26,13 @@ class Torrent(object):
         params = {
             'info_hash':self.info_hash,
             'peer_id':self.PEER_ID,
-            'left':self.torrent['info']['piece length'],
+            'left':self.torrent_file['info']['piece length'],
             'port':self.PORT_NO,
             'uploaded':0,
             'downloaded':0,
             'compact':1
             }
-        tracker_response = requests.get(self.torrent['announce'], params=params)
+        tracker_response = requests.get(self.torrent_file['announce'], params=params)
         self.tracker = bencode.bdecode(tracker_response.content)
         self.peers = self.parse_peers(self.tracker['peers'])
         print "found %i peers" % len(self.peers)
@@ -51,15 +52,15 @@ class Torrent(object):
 
     def parse_pieces(self):
         self.pieces = []
-        piece_length = self.torrent['info']['piece length']
-        length_left = self.torrent['info']['length']
-        piece_hashes = self.torrent['info']['pieces']
+        piece_length = self.torrent_file['info']['piece length']
+        length_left = self.torrent_file['info']['length']
+        piece_hashes = self.torrent_file['info']['pieces']
         i = 0
         while length_left > 0:
             self.pieces.append(Piece(i, min(piece_length, length_left),piece_hashes[0:20]))
             piece_hashes = piece_hashes[20:]
             length_left -= piece_length
-        self.bitfield = BitArray(int=0, length=len(self.torrent.pieces))
+        self.bitfield = BitArray(int=0, length=len(self.pieces))
         print 'parsed %i pieces' % len(self.pieces)
 
 

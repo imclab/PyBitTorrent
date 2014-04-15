@@ -128,6 +128,7 @@ class PeerReceiveThread(Thread):
     def __init__(self, peer):
         super(PeerReceiveThread, self).__init__()
         self.peer = peer
+        self.daemon = True
 
     def run(self):
         self.peer.socket.settimeout(120)

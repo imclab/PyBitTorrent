@@ -54,6 +54,7 @@ class Peer(object):
 
     def handle_unchoke_msg(self, payload):
         self.peer_choking = False
+        send_request()
 
 
     def handle_interested_msg(self, payload):
@@ -103,6 +104,18 @@ class Peer(object):
         print 'sending interested'
         self.am_interested = True
         self.socket.send('\x00\x00\x00\x01\x02')
+
+    def send_request(self):
+        for i in range(0, len(self.torrent.pieces)):
+            if(self.torrent.pieces[i].have == False and self.bitfield[i] == True)
+                next_block = self.torrent.pieces[i].find_next_block()
+                header = struct.pack('>I', 13)
+                id = '\x06'
+                piece_index = struct.pack('>I', i)
+                block_offset = struct.pack('>I', next_block.offset)
+                block_size = struct.pack('>I', next_block.size)
+                req = header + id + piece_index + block_offset + block_size
+                self.socket.send(req)
 
     def connect(self):
         print self.ip

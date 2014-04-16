@@ -41,6 +41,8 @@ class Peer(object):
             self.receive_thread.start()
 
         except socket.error as err:
+            # if we get an error remove the peer
+            self.torrent.peers.remove(self)
             print err
 
     def handle_keep_alive_msg(self, payload):

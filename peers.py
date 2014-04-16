@@ -77,8 +77,11 @@ class Peer(object):
 
 
     def handle_piece_msg(self, payload):
-        pass
-
+        index = bytes_to_number(payload[0:4])
+        offset = bytes_to_number(payload[4:8])
+        data = payload[8:]
+        self.torrent.pieces[index].downloaded_block(offset, data)
+        self.send_request()
 
     def handle_cancel_msg(self, payload):
         pass

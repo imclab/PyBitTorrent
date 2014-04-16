@@ -28,8 +28,8 @@ class Piece(object):
         self.have = True
         return None
 
-    def downloaded_block(self, block, data):
-        i = block.offset / self.BLOCK_SIZE
+    def downloaded_block(self, offset, data):
+        i = offset / self.BLOCK_SIZE
         self.blocks[i].data = data
         self.blocks[i].have = True
         if self.find_next_block() == None:

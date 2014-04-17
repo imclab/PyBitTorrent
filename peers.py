@@ -168,6 +168,8 @@ class PeerReceiveThread(Thread):
                         print 'received handshake'
                     else:
                         self.peer.remove_from_peers()
+                        print 'bad handshake'
+                        return
                     continue
                 msg = bytearray(msg)
                 length = bytes_to_number(msg[0:4])
@@ -198,7 +200,9 @@ class PeerReceiveThread(Thread):
                 try:
                     handlers[msg_id](payload)
                 except KeyError:
-                    print 'no handler for msg id %i' % msg_id
+                    self.peer.remove_from_peers()
+                    print 'invalid msg id'
+                    return
             except socket.error as err:
                 num_errors = num_errors + 1
                 print '---------------'

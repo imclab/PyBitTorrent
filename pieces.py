@@ -22,9 +22,9 @@ class Piece(object):
             i = i + this_block_size
 
     def find_next_block(self):
-        for i, block in enumerate(self.blocks):
+        for block in enumerate(self.blocks):
             if not block.have:
-                return i
+                return block
         self.have = True
         return None
 

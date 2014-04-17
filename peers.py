@@ -77,7 +77,7 @@ class Peer(object):
         print 'piece'
         index = bytes_to_number(payload[0:4])
         offset = bytes_to_number(payload[4:8])
-        print 'received piece %i at offset %i' % (index, offset)
+        print 'received piece %i/%i at offset %i' % (index, len(self.torrent.pieces), offset)
         data = payload[8:]
         self.torrent.pieces[index].downloaded_block(offset, data)
         self.send_request()
@@ -185,18 +185,19 @@ class PeerThread(Thread):
                         print '---------------'
                         print 'peer %s' % self.peer.ip
                         print 'received handshake'
+                        continue
                     else:
                         self.peer.remove_from_peers()
                         print 'bad handshake'
                         return
+                length = bytes_to_number(bytearray(msg)[0:4])
+                if (length == 0):
                     continue
+                while length > len(msg):
+                    next_msg = self.peer.socket.recv(100000)
+                    msg = msg + next_msg
                 msg = bytearray(msg)
-                length = bytes_to_number(msg[0:4])
-                if (length > 0):
-                    msg_id = msg[4]
-                else: 
-                    msg_id = -1
-                    continue
+                msg_id = msg[4]
                 num_errors = 0
                 print '---------------'
                 print 'peer %s' % self.peer.ip

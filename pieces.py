@@ -1,4 +1,4 @@
-
+import hashlib
 
 class Piece(object):
 

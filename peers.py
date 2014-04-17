@@ -77,6 +77,7 @@ class Peer(object):
         print 'piece'
         index = bytes_to_number(payload[0:4])
         offset = bytes_to_number(payload[4:8])
+        print 'received piece %i at offset %i' % (index, offset)
         data = payload[8:]
         self.torrent.pieces[index].downloaded_block(offset, data)
         self.send_request()
@@ -112,7 +113,11 @@ class Peer(object):
                 block_offset = struct.pack('>I', next_block.offset)
                 block_size = struct.pack('>I', next_block.size)
                 req = header + id + piece_index + block_offset + block_size
+                print '---------------'
+                print 'peer %s' % self.ip
+                print 'requesting piece %i at offset %i' % (i, next_block.offset)
                 self.socket.send(req)
+                return
 
     def connect(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -169,6 +174,7 @@ class PeerThread(Thread):
 
         self.peer.socket.settimeout(120)
         num_errors = 0
+        num_success = 0
         while True:
             try:
                 msg = self.peer.socket.recv(100000)
@@ -191,6 +197,7 @@ class PeerThread(Thread):
                 else: 
                     msg_id = -1
                     continue
+                num_errors = 0
                 print '---------------'
                 print 'peer %s' % self.peer.ip
                 payload = msg[5:]
@@ -220,6 +227,7 @@ class PeerThread(Thread):
                 print '---------------'
                 print 'peer %s' % self.peer.ip
                 print "error number %i" % num_errors
+                # if we have three errors in a row, remove the peer
                 if (num_errors >= 3):
                     self.peer.remove_from_peers()
                     return

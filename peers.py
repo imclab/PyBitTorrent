@@ -224,3 +224,23 @@ class PeerThread(Thread):
                     self.peer.remove_from_peers()
                     return
 
+def combine_pieces(self):
+    data = ''
+    for i in range(0, len(self.torrent.pieces)):
+        data += self.torrent.pieces[i].data
+    return data
+
+#file = info['name']
+def write_to_file(self, file, size):
+    f = open('./' + file, 'w')
+    data = combine_pieces()
+    f.write(data)
+    f.close()
+
+#def write(self)
+#    path = './' + info['name] + '/'
+#    if not os.path.exists(path):
+#        os.makedirs(path)
+
+    
+

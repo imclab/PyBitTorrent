@@ -41,7 +41,6 @@ class Torrent(object):
         tracker_response = requests.get(self.torrent_file['announce'], params=params)
         self.tracker = bencode.bdecode(tracker_response.content)
         self.peers = self.parse_peers(self.tracker['peers'])
-        print "found %i peers" % len(self.peers)
 
     def parse_peers(self, list):
         peers = []
@@ -53,6 +52,7 @@ class Torrent(object):
                 ip_addr.append(str(ord(peer_str[i])))
             ip_addr = '.'.join(ip_addr)
             port_no = 256*ord(peer_str[4])+ord(peer_str[5])
+            print 'peer %s:%i' % (ip_addr, port_no)
             peers.append(Peer(ip_addr,port_no,self))
         return peers
 
@@ -77,7 +77,10 @@ class Torrent(object):
 
 
     def connect_to_peers(self):
+        print "connecting to %i peers" % len(self.peers)
         for peer in self.peers:
+            print 'connecting to peer %s' % peer.ip
+            time.sleep(1)
             peer.run()
 
 

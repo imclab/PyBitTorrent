@@ -30,58 +30,51 @@ class Peer(object):
 
 
     def run(self):
-        try:
-            print '---------------'
-            print 'peer %s' % self.ip
-            print 'connecting'
-            self.connect()
-            print 'connected'
-            self.send_handshake()
-            print 'handshake sent'
-
-            self.receive_thread = PeerReceiveThread(self)
-            self.receive_thread.start()
-
-        except socket.error as err:
-            # if we get an error remove the peer
-            self.remove_from_peers()
-            print "connect error: %s" % err
+        self.thread = PeerThread(self)
+        self.thread.start()
 
     def handle_keep_alive_msg(self, payload):
         pass
 
     def handle_choke_msg(self, payload):
+        print 'choke'
         self.peer_choking = True
 
 
     def handle_unchoke_msg(self, payload):
+        print 'unchoke'
         self.peer_choking = False
         self.send_request()
 
 
     def handle_interested_msg(self, payload):
+        print 'interested'
         self.peer_interested = True
 
 
     def handle_not_interested_msg(self, payload):
+        print 'not_interested'
         self.peer_interested = False
 
 
     def handle_have_msg(self, payload):
-        index = bytes_to_number(payload)
+        print 'have'
+        index = bytes_to_number(payload[0:4])
         self.bitfield[index] = True
         self.bitfield_updated()
 
 
     def handle_bitfield_msg(self, payload):
+        print 'bitfield'
         self.bitfield = BitArray(bytes=payload, length=len(self.torrent.pieces))
         self.bitfield_updated()
 
     def handle_request_msg(self, payload):
+        print 'request'
         pass
 
-
     def handle_piece_msg(self, payload):
+        print 'piece'
         index = bytes_to_number(payload[0:4])
         offset = bytes_to_number(payload[4:8])
         data = payload[8:]
@@ -89,9 +82,11 @@ class Peer(object):
         self.send_request()
 
     def handle_cancel_msg(self, payload):
+        print 'cancel'
         pass
 
     def handle_port_msg(self, payload):
+        print 'port'
         pass
 
     def bitfield_updated(self):
@@ -121,7 +116,7 @@ class Peer(object):
 
     def connect(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(5)
+        self.socket.settimeout(2)
         self.socket.connect((self.ip, self.port))
 
     def send_handshake(self):
@@ -145,15 +140,33 @@ class Peer(object):
         print '---------------'
         print 'peer %s' % self.ip
         print 'removed'
+        print '%i peers left' % len(self.torrent.peers)
+        for peer in self.torrent.peers:
+            print 'peer %s:%i' % (peer.ip, peer.port)
 
-class PeerReceiveThread(Thread):
+class PeerThread(Thread):
 
     def __init__(self, peer):
-        super(PeerReceiveThread, self).__init__()
+        super(PeerThread, self).__init__()
         self.peer = peer
         self.daemon = True
 
     def run(self):
+        try:
+            print '---------------'
+            print 'peer %s' % self.peer.ip
+            print 'connecting'
+            self.peer.connect()
+            print '---------------'
+            print 'peer %s' % self.peer.ip
+            print 'connected'
+            self.peer.send_handshake()
+        except socket.error as err:
+            # if we get an error remove the peer
+            self.peer.remove_from_peers()
+            print "connect error: %s" % err
+            return
+
         self.peer.socket.settimeout(120)
         num_errors = 0
         while True:
@@ -185,7 +198,6 @@ class PeerReceiveThread(Thread):
                 print 'msg_id %s' % msg_id
                 print msg_id
                 handlers = {
-                    -1:self.peer.handle_keep_alive_msg,
                     0:self.peer.handle_choke_msg,
                     1:self.peer.handle_unchoke_msg,
                     2:self.peer.handle_interested_msg,

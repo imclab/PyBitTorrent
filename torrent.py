@@ -1,6 +1,7 @@
 import bencode
 import hashlib
 import requests
+import time
 from peers import Peer
 from pieces import Piece
 from bitstring import BitArray
@@ -21,6 +22,11 @@ class Torrent(object):
         self.get_peer_list()
 
         self.connect_to_peers()
+        while not self.have_all_pieces():
+            if (len(self.peers) <= 0):
+                print 'no peers left'
+                return
+            time.sleep(5)
 
     def get_peer_list(self):
         params = {
@@ -62,6 +68,12 @@ class Torrent(object):
             length_left -= piece_length
         self.bitfield = BitArray(int=0, length=len(self.pieces))
         print 'parsed %i pieces' % len(self.pieces)
+
+    def have_all_pieces(self):
+        for piece in self.pieces:
+            if not piece.have:
+                return False
+        return True
 
 
     def connect_to_peers(self):

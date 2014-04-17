@@ -22,6 +22,7 @@ class Peer(object):
         self.port = port
         self.torrent = torrent
         self.bitfield = BitArray(int=0, length=len(self.torrent.pieces))
+        self.handshake_done = False
         self.am_choking = True
         self.am_interested = False
         self.peer_choking = True
@@ -30,20 +31,21 @@ class Peer(object):
 
     def run(self):
         try:
-            print '-------------'
-            print '\n'
+            print '---------------'
+            print 'peer %s' % self.ip
+            print 'connecting'
             self.connect()
-            print 'successfully connected'
-            self.handshake()
-            print 'handshake done'
+            print 'connected'
+            self.send_handshake()
+            print 'handshake sent'
 
             self.receive_thread = PeerReceiveThread(self)
             self.receive_thread.start()
 
         except socket.error as err:
             # if we get an error remove the peer
-            self.torrent.peers.remove(self)
-            print err
+            self.remove_from_peers()
+            print "connect error: %s" % err
 
     def handle_keep_alive_msg(self, payload):
         pass
@@ -54,7 +56,7 @@ class Peer(object):
 
     def handle_unchoke_msg(self, payload):
         self.peer_choking = False
-        send_request()
+        self.send_request()
 
 
     def handle_interested_msg(self, payload):
@@ -107,7 +109,7 @@ class Peer(object):
 
     def send_request(self):
         for i in range(0, len(self.torrent.pieces)):
-            if(self.torrent.pieces[i].have == False and self.bitfield[i] == True)
+            if(self.torrent.pieces[i].have == False and self.bitfield[i] == True):
                 next_block = self.torrent.pieces[i].find_next_block()
                 header = struct.pack('>I', 13)
                 id = '\x06'
@@ -118,19 +120,13 @@ class Peer(object):
                 self.socket.send(req)
 
     def connect(self):
-        print self.ip
-        print self.port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.settimeout(5)
         self.socket.connect((self.ip, self.port))
 
-    def handshake(self):
+    def send_handshake(self):
         msg = self.get_handshake_msg()
         self.socket.send(msg)
-        received_handshake = self.socket.recv(2000)
-        print received_handshake
-        received_info_hash = received_handshake[28:48]
-
 
     def get_handshake_msg(self):
         pstrlen = '\x13'
@@ -141,6 +137,15 @@ class Peer(object):
 
         return handshake
 
+    def remove_from_peers(self):
+        self.socket.close()
+        for peer in self.torrent.peers:
+            if peer.ip == self.ip:
+                self.torrent.peers.remove(peer)
+        print '---------------'
+        print 'peer %s' % self.ip
+        print 'removed'
+
 class PeerReceiveThread(Thread):
 
     def __init__(self, peer):
@@ -150,34 +155,56 @@ class PeerReceiveThread(Thread):
 
     def run(self):
         self.peer.socket.settimeout(120)
+        num_errors = 0
         while True:
-            msg = self.peer.socket.recv(100000)
-            msg = bytearray(msg)
-            length = bytes_to_number(msg[0:4])
-            if (length > 0):
-                msg_id = msg[4]
-            else: 
-                msg_id = -1
-                continue
-            payload = msg[5:]
-            print 'length %s' % length
-            print 'msg_id %s' % msg_id
-            print msg_id
-            handlers = {
-                -1:self.peer.handle_keep_alive_msg,
-                0:self.peer.handle_choke_msg,
-                1:self.peer.handle_unchoke_msg,
-                2:self.peer.handle_interested_msg,
-                3:self.peer.handle_not_interested_msg,
-                4:self.peer.handle_have_msg,
-                5:self.peer.handle_bitfield_msg,
-                6:self.peer.handle_request_msg,
-                7:self.peer.handle_piece_msg,
-                8:self.peer.handle_cancel_msg,
-                9:self.peer.handle_port_msg
-                }
             try:
-                handlers[msg_id](payload)
-            except KeyError:
-                print 'no handler for msg id %i' % msg_id
+                msg = self.peer.socket.recv(100000)
+                if self.peer.handshake_done == False:
+                    received_info_hash = msg[28:48]
+                    if received_info_hash == self.peer.torrent.info_hash:
+                        self.peer.handshake_done = True
+                        print '---------------'
+                        print 'peer %s' % self.peer.ip
+                        print 'received handshake'
+                    else:
+                        self.peer.remove_from_peers()
+                    continue
+                msg = bytearray(msg)
+                length = bytes_to_number(msg[0:4])
+                if (length > 0):
+                    msg_id = msg[4]
+                else: 
+                    msg_id = -1
+                    continue
+                print '---------------'
+                print 'peer %s' % self.peer.ip
+                payload = msg[5:]
+                print 'length %s' % length
+                print 'msg_id %s' % msg_id
+                print msg_id
+                handlers = {
+                    -1:self.peer.handle_keep_alive_msg,
+                    0:self.peer.handle_choke_msg,
+                    1:self.peer.handle_unchoke_msg,
+                    2:self.peer.handle_interested_msg,
+                    3:self.peer.handle_not_interested_msg,
+                    4:self.peer.handle_have_msg,
+                    5:self.peer.handle_bitfield_msg,
+                    6:self.peer.handle_request_msg,
+                    7:self.peer.handle_piece_msg,
+                    8:self.peer.handle_cancel_msg,
+                    9:self.peer.handle_port_msg
+                    }
+                try:
+                    handlers[msg_id](payload)
+                except KeyError:
+                    print 'no handler for msg id %i' % msg_id
+            except socket.error as err:
+                num_errors = num_errors + 1
+                print '---------------'
+                print 'peer %s' % self.peer.ip
+                print "error number %i" % num_errors
+                if (num_errors >= 3):
+                    self.peer.remove_from_peers()
+                    return
 

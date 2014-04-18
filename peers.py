@@ -1,5 +1,6 @@
 import socket
 import struct
+import random
 from bitstring import BitArray
 from threading import Thread
 
@@ -27,6 +28,7 @@ class Peer(object):
         self.am_interested = False
         self.peer_choking = True
         self.peer_interested = False
+        self.piece_start = random.randint(0,len(self.torrent.pieces)-1)
 
 
     def run(self):
@@ -103,21 +105,34 @@ class Peer(object):
         self.am_interested = True
         self.socket.send('\x00\x00\x00\x01\x02')
 
-    def send_request(self):
-        for i in range(0, len(self.torrent.pieces)):
+    def find_next_piece(self):
+        # find the next piece to download. first look for pieces that we are downloading or no one else is downloading.
+        for i in (range(self.piece_start, len(self.torrent.pieces))+range(0,self.piece_start)):
+            if(self.torrent.pieces[i].have == False and self.bitfield[i] == True and (self.torrent.pieces[i].downloading_peer == None or self.torrent.pieces[i].downloading_peer == self.ip)):
+                return i
+        # then look for any piece
+        for i in (range(self.piece_start, len(self.torrent.pieces))+range(0,self.piece_start)):
             if(self.torrent.pieces[i].have == False and self.bitfield[i] == True):
-                next_block = self.torrent.pieces[i].find_next_block()
-                header = struct.pack('>I', 13)
-                id = '\x06'
-                piece_index = struct.pack('>I', i)
-                block_offset = struct.pack('>I', next_block.offset)
-                block_size = struct.pack('>I', next_block.size)
-                req = header + id + piece_index + block_offset + block_size
-                print '---------------'
-                print 'peer %s' % self.ip
-                print 'requesting piece %i at offset %i' % (i, next_block.offset)
-                self.socket.send(req)
-                return
+                return i
+        return None
+
+    def send_request(self):
+        i = self.find_next_piece()
+        print i
+        if i == None:
+            self.torrent.finish_torrent()
+        next_block = self.torrent.pieces[i].find_next_block()
+        header = struct.pack('>I', 13)
+        id = '\x06'
+        piece_index = struct.pack('>I', i)
+        block_offset = struct.pack('>I', next_block.offset)
+        block_size = struct.pack('>I', next_block.size)
+        req = header + id + piece_index + block_offset + block_size
+        print '---------------'
+        print 'peer %s' % self.ip
+        print 'requesting piece %i at offset %i' % (i, next_block.offset)
+        self.torrent.print_progress()
+        self.socket.send(req)
 
     def connect(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -146,8 +161,6 @@ class Peer(object):
         print 'peer %s' % self.ip
         print 'removed'
         print '%i peers left' % len(self.torrent.peers)
-        for peer in self.torrent.peers:
-            print 'peer %s:%i' % (peer.ip, peer.port)
 
 class PeerThread(Thread):
 
@@ -204,7 +217,6 @@ class PeerThread(Thread):
                 payload = msg[5:]
                 print 'length %s' % length
                 print 'msg_id %s' % msg_id
-                print msg_id
                 handlers = {
                     0:self.peer.handle_choke_msg,
                     1:self.peer.handle_unchoke_msg,
@@ -232,24 +244,3 @@ class PeerThread(Thread):
                 if (num_errors >= 3):
                     self.peer.remove_from_peers()
                     return
-
-def combine_pieces(self):
-    data = ''
-    for i in range(0, len(self.torrent.pieces)):
-        data += self.torrent.pieces[i].data
-    return data
-
-#file = info['name']
-def write_to_file(self, file, size):
-    f = open('./' + file, 'w')
-    data = combine_pieces()
-    f.write(data)
-    f.close()
-
-#def write(self)
-#    path = './' + info['name] + '/'
-#    if not os.path.exists(path):
-#        os.makedirs(path)
-
-    
-

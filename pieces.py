@@ -10,6 +10,7 @@ class Piece(object):
         self.hash = piece_hash
         self.have = False
         self.data = None
+        self.downloading_peer = None
 
         self.split_into_blocks()
 

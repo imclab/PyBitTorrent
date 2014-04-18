@@ -2,6 +2,7 @@ import bencode
 import hashlib
 import requests
 import time
+import sys
 from peers import Peer
 from pieces import Piece
 from bitstring import BitArray
@@ -38,7 +39,9 @@ class Torrent(object):
             'downloaded':0,
             'compact':1
             }
-        tracker_response = requests.get(self.torrent_file['announce'], params=params)
+        url = self.torrent_file['announce']
+        url = url.replace('udp://', 'http://')
+        tracker_response = requests.get(url, params=params)
         self.tracker = bencode.bdecode(tracker_response.content)
         self.peers = self.parse_peers(self.tracker['peers'])
 
@@ -75,13 +78,47 @@ class Torrent(object):
                 return False
         return True
 
-
     def connect_to_peers(self):
         print "connecting to %i peers" % len(self.peers)
         for peer in self.peers:
             print 'connecting to peer %s' % peer.ip
             time.sleep(1)
             peer.run()
+
+    def finish_torrent(self):
+        self.write_to_file()
+        print 'finished torrent'
+        sys.exit(0)
+
+    def write_to_file(self):
+        file_name = self.torrent_file['name']
+        f = open('./' + file_name, 'w')
+        data = combine_pieces()
+        f.write(data)
+        f.close()
+
+    def combine_pieces(self):
+        data = ''
+        for i in range(0, len(self.pieces)):
+            data += self.pieces[i].data
+        return data
+
+    def num_pieces_downloaded(self):
+        i = 0
+        for piece in self.pieces:
+            if piece.have:
+                i += 1
+        return i
+
+    def print_progress(self):
+        total_pieces = len(self.pieces)
+        pieces_downloaded = self.num_pieces_downloaded()
+        pct = pieces_downloaded/float(total_pieces)
+        progress = int(50*pct)
+        string = '['+('='*progress)+(' '*(50-progress))+']'
+        print string
+        print '%f%% downloaded (%i/%i)' % ((pct*100),pieces_downloaded,total_pieces)
+
 
 
 

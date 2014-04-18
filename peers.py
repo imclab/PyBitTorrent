@@ -28,7 +28,6 @@ class Peer(object):
         self.am_interested = False
         self.peer_choking = True
         self.peer_interested = False
-        self.piece_start = random.randint(0,len(self.torrent.pieces)-1)
 
 
     def run(self):
@@ -107,11 +106,11 @@ class Peer(object):
 
     def find_next_piece(self):
         # find the next piece to download. first look for pieces that we are downloading or no one else is downloading.
-        for i in (range(self.piece_start, len(self.torrent.pieces))+range(0,self.piece_start)):
+        for i in range(0, len(self.torrent.pieces)):
             if(self.torrent.pieces[i].have == False and self.bitfield[i] == True and (self.torrent.pieces[i].downloading_peer == None or self.torrent.pieces[i].downloading_peer == self.ip)):
                 return i
         # then look for any piece
-        for i in (range(self.piece_start, len(self.torrent.pieces))+range(0,self.piece_start)):
+        for i in range(0, len(self.torrent.pieces)):
             if(self.torrent.pieces[i].have == False and self.bitfield[i] == True):
                 return i
         return None

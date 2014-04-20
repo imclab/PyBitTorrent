@@ -136,9 +136,9 @@ class Torrent(object):
         sys.exit(0)
 
     def write_to_file(self):
-        file_name = self.torrent_file['name']
+        file_name = self.torrent_file['info']['name']
         f = open('./' + file_name, 'w')
-        data = combine_pieces()
+        data = self.combine_pieces()
         f.write(data)
         f.close()
 

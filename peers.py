@@ -81,7 +81,10 @@ class Peer(object):
         print 'received piece %i/%i at offset %i' % (index, len(self.torrent.pieces), offset)
         data = payload[8:]
         self.torrent.pieces[index].downloaded_block(offset, data)
-        self.send_request()
+        if self.torrent.have_all_pieces():
+            self.torrent.finish_torrent()
+        else:
+            self.send_request()
 
     def handle_cancel_msg(self, payload):
         print 'cancel'
@@ -118,7 +121,6 @@ class Peer(object):
     def send_request(self):
         i = self.find_next_piece()
         if i == None:
-            self.torrent.finish_torrent()
             return
         self.torrent.pieces[i].downloading_peer = self.ip
 
@@ -231,11 +233,12 @@ class PeerThread(Thread):
                     9:self.peer.handle_port_msg
                     }
                 try:
-                    handlers[msg_id](payload)
+                    handler = handlers[msg_id]
                 except KeyError:
                     self.peer.remove_from_peers()
                     print 'invalid msg id'
                     return
+                handler(payload)
             except socket.error as err:
                 num_errors = num_errors + 1
                 print '---------------'

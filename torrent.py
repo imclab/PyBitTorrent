@@ -18,7 +18,14 @@ class Torrent(object):
 
     def __init__(self, torrentFileName):
         self.torrent_file = bencode.bdecode(open(torrentFileName,'rb').read())
-
+        
+        if 'length' in self.torrent_file['info']:
+            self.length = self.torrent_file['info']['length']
+        else:
+            self.length = 0
+            for file in self.torrent_file['info']['files']:
+                self.length += file['length']
+                
         self.parse_pieces()
 
         encoded_info = bencode.bencode(self.torrent_file['info'])
@@ -44,7 +51,7 @@ class Torrent(object):
         params = {
             'info_hash':self.info_hash,
             'peer_id':self.PEER_ID,
-            'left':self.torrent_file['info']['piece length'],
+            'left':self.length,
             'port':self.PORT_NO,
             'uploaded':0,
             'downloaded':0,
@@ -67,7 +74,7 @@ class Torrent(object):
         # connection id + action + transaction id + info hash + peer id
         message = response[8:16]+struct.pack('>I', 1)+struct.pack('>I', random.randint(0, 100000))+self.info_hash+self.PEER_ID
         # downloaded + left + uploaded
-        message += struct.pack('>Q', 0) + struct.pack('>Q', self.torrent_file['info']['piece length']) + struct.pack('>Q', 0)
+        message += struct.pack('>Q', 0) + struct.pack('>Q', self.length) + struct.pack('>Q', 0)
         # event + ip + key + num want + port
         message += struct.pack('>I', 0) + struct.pack('>I', 0) + struct.pack('>I', 0) + struct.pack('>i', -1) + struct.pack('>h', 8000)
         
@@ -107,7 +114,7 @@ class Torrent(object):
     def parse_pieces(self):
         self.pieces = []
         piece_length = self.torrent_file['info']['piece length']
-        length_left = self.torrent_file['info']['length']
+        length_left = self.length
         piece_hashes = self.torrent_file['info']['pieces']
         i = 0
         while length_left > 0:

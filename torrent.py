@@ -142,6 +142,22 @@ class Torrent(object):
         f.write(data)
         f.close()
 
+
+    def write_to_multiple_files(self, files, path):
+        data = combine_pieces();
+        data_index = 0;
+    
+        for file in files:
+            file_path = path + '/'.join(file['path']);
+            f = open(file_path, 'w');
+
+            file_size = file['length'];
+
+            for i in range(data_index, file_size):
+                f.write(i);
+
+            data_index += file_size
+        
     def combine_pieces(self):
         data = ''
         for i in range(0, len(self.pieces)):
@@ -163,7 +179,6 @@ class Torrent(object):
         string = '['+('='*progress)+(' '*(50-progress))+']'
         print string
         print '%f%% downloaded (%i/%i)' % ((pct*100),pieces_downloaded,total_pieces)
-
 
 
 

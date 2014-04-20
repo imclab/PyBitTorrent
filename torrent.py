@@ -3,6 +3,10 @@ import hashlib
 import requests
 import time
 import sys
+import socket
+import struct
+import random
+from urlparse import urlparse
 from peers import Peer
 from pieces import Piece
 from bitstring import BitArray
@@ -30,6 +34,13 @@ class Torrent(object):
             time.sleep(5)
 
     def get_peer_list(self):
+        url = self.torrent_file['announce']
+        if (url.startswith('udp://')):
+            self.get_tracker_udp()
+        else:
+            self.get_tracker_http()
+
+    def get_tracker_http(self):
         params = {
             'info_hash':self.info_hash,
             'peer_id':self.PEER_ID,
@@ -39,11 +50,45 @@ class Torrent(object):
             'downloaded':0,
             'compact':1
             }
-        url = self.torrent_file['announce']
-        url = url.replace('udp://', 'http://')
-        tracker_response = requests.get(url, params=params)
-        self.tracker = bencode.bdecode(tracker_response.content)
-        self.peers = self.parse_peers(self.tracker['peers'])
+        tracker_response = requests.get(self.torrent_file['announce'], params=params)
+        tracker_dict = bencode.bdecode(tracker_response.content)
+        self.parse_peers(tracker_dict['peers'])
+
+    def get_tracker_udp(self):
+        parsed_url = urlparse(self.torrent_file['announce'])
+        connection = (socket.gethostbyname(parsed_url.hostname), parsed_url.port)
+
+        udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        udp_socket.settimeout(10)
+        
+        message = struct.pack('>Q', 0x41727101980)+struct.pack('>I', 0)+struct.pack('>I', random.randint(0, 100000))
+        response = self.send_and_recv_udp(udp_socket, connection, message, 5)
+        
+        # connection id + action + transaction id + info hash + peer id
+        message = response[8:16]+struct.pack('>I', 1)+struct.pack('>I', random.randint(0, 100000))+self.info_hash+self.PEER_ID
+        # downloaded + left + uploaded
+        message += struct.pack('>Q', 0) + struct.pack('>Q', self.torrent_file['info']['piece length']) + struct.pack('>Q', 0)
+        # event + ip + key + num want + port
+        message += struct.pack('>I', 0) + struct.pack('>I', 0) + struct.pack('>I', 0) + struct.pack('>i', -1) + struct.pack('>h', 8000)
+        
+        response = self.send_and_recv_udp(udp_socket, connection, message, 5)
+        
+        self.parse_peers(response[20:])
+
+    def send_and_recv_udp(self, udp_socket, connection, message, retry):
+        if (retry == 0):
+            print 'could not get tracker'
+            return None
+        try:
+            udp_socket.sendto(message, connection)
+            response = udp_socket.recv(2048)
+            if (message[8:16] == response[0:8]):
+                return response
+            else:
+                return self.receive_udp(udp_socket, connection, message, retry-1)
+        except socket.timeout as err:
+            print 'error querying udp tracker' + err
+            return self.receive_udp(udp_socket, connection, message, retry-1)
 
     def parse_peers(self, list):
         peers = []
@@ -57,7 +102,7 @@ class Torrent(object):
             port_no = 256*ord(peer_str[4])+ord(peer_str[5])
             print 'peer %s:%i' % (ip_addr, port_no)
             peers.append(Peer(ip_addr,port_no,self))
-        return peers
+        self.peers = peers
 
     def parse_pieces(self):
         self.pieces = []

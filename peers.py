@@ -117,9 +117,11 @@ class Peer(object):
 
     def send_request(self):
         i = self.find_next_piece()
-        print i
         if i == None:
             self.torrent.finish_torrent()
+            return
+        self.torrent.pieces[i].downloading_peer = self.ip
+
         next_block = self.torrent.pieces[i].find_next_block()
         header = struct.pack('>I', 13)
         id = '\x06'

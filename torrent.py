@@ -131,27 +131,31 @@ class Torrent(object):
             peer.run()
 
     def finish_torrent(self):
-        self.write_to_file()
+        if 'files' in self.torrent_file['info']:
+            self.write_to_multiple_files()
+        else:
+            self.write_to_file()
+            
         print 'finished torrent'
         sys.exit(0)
 
     def write_to_file(self):
         file_name = self.torrent_file['info']['name']
         f = open('./' + file_name, 'w')
-        data = self.combine_pieces()
+        data = combine_pieces()
         f.write(data)
         f.close()
 
 
-    def write_to_multiple_files(self, files, path):
+    def write_to_multiple_files(self):
         data = combine_pieces();
         data_index = 0;
     
-        for file in files:
-            file_path = path + '/'.join(file['path']);
+        for file in self.torrent_file['info']['files']:
+            file_path = './' + '/'.join(self.torrent_file['info']['path']);
             f = open(file_path, 'w');
 
-            file_size = file['length'];
+            file_size = self.torrent_file['info']['length'];
 
             for i in range(data_index, file_size):
                 f.write(i);

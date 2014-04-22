@@ -149,13 +149,13 @@ class Torrent(object):
     def write_to_file(self):
         file_name = self.torrent_file['info']['name']
         f = open('./' + file_name, 'w')
-        data = combine_pieces()
+        data = self.combine_pieces()
         f.write(data)
         f.close()
 
 
     def write_to_multiple_files(self):
-        data = combine_pieces();
+        data = self.combine_pieces();
         data_index = 0;
     
         for file in self.torrent_file['info']['files']:
